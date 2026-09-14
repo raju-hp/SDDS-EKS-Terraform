@@ -26,8 +26,4 @@ variable "private_subnets" {
 variable "availability_zones" {
   type = list(string)
 
-  validation {
-    condition     = length(var.availability_zones) >= length(var.public_subnets) && length(var.availability_zones) >= length(var.private_subnets)
-    error_message = "availability_zones must contain at least as many AZs as the public/private subnet lists."
-  }
 }

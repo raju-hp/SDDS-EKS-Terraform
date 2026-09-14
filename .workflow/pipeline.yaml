@@ -1,0 +1,197 @@
+name: EKS Infrastructure Pipeline
+
+on:
+  workflow_dispatch:
+
+  push:
+    branches:
+      - main
+      - dev
+    
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  TF_IN_AUTOMATION: true
+  TF_INPUT: false
+
+jobs:
+
+  terraform:
+    name: Terraform - EKS Infrastructure
+    runs-on: ubuntu-latest
+
+    environment: dev
+
+    steps:
+      # ---------------------------------------------------------
+      # 1. Checkout source code
+      # ---------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+
+      # ---------------------------------------------------------
+      # 2. Configure AWS authentication using GitHub OIDC
+      # ---------------------------------------------------------
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-EKS
+
+
+      # ---------------------------------------------------------
+      # 3. Verify AWS authentication
+      # ---------------------------------------------------------
+      - name: Verify AWS identity
+        run: |
+          echo "Checking AWS authentication..."
+          aws sts get-caller-identity
+
+
+      # ---------------------------------------------------------
+      # 4. Check AWS region
+      # ---------------------------------------------------------
+      - name: Check AWS region
+        run: |
+          echo "AWS Region:"
+          aws configure get region
+
+          echo "AWS CLI version:"
+          aws --version
+
+
+      # ---------------------------------------------------------
+      # 5. Setup Terraform
+      # ---------------------------------------------------------
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+
+      # ---------------------------------------------------------
+      # 6. Check Terraform version
+      # ---------------------------------------------------------
+      - name: Terraform version
+        run: |
+          terraform version
+
+
+      # ---------------------------------------------------------
+      # 7. Terraform formatting check
+      # ---------------------------------------------------------
+      - name: Terraform Format Check
+        run: |
+          terraform fmt -check -recursive
+
+
+      # ---------------------------------------------------------
+      # 8. Terraform initialization
+      # ---------------------------------------------------------
+      - name: Terraform Init
+        run: |
+          terraform init -input=false
+
+
+      # ---------------------------------------------------------
+      # 9. Terraform validation
+      # ---------------------------------------------------------
+      - name: Terraform Validate
+        run: |
+          terraform validate
+
+
+      # ---------------------------------------------------------
+      # 10. Terraform Plan
+      # ---------------------------------------------------------
+      - name: Terraform Plan
+        run: |
+          terraform plan \
+            -var-file="env/dev.tfvars" \
+            -out=tfplan
+
+
+      # ---------------------------------------------------------
+      # 11. Terraform Apply
+      # ---------------------------------------------------------
+      - name: Terraform Apply
+        run: |
+          terraform apply \
+            -auto-approve \
+            tfplan
+
+
+      # ---------------------------------------------------------
+      # 12. Display Terraform outputs
+      # ---------------------------------------------------------
+      - name: Terraform Outputs
+        run: |
+          terraform output
+
+
+      # ---------------------------------------------------------
+      # 13. Verify EKS cluster
+      # ---------------------------------------------------------
+      - name: Verify EKS cluster
+        run: |
+          aws eks describe-cluster \
+            --name dev-sdds-eks \
+            --region $AWS_REGION \
+            --query 'cluster.status' \
+            --output text
+
+
+      # ---------------------------------------------------------
+      # 14. Configure kubectl
+      # ---------------------------------------------------------
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig \
+            --region $AWS_REGION \
+            --name dev-sdds-eks
+
+
+      # ---------------------------------------------------------
+      # 15. Verify Kubernetes cluster
+      # ---------------------------------------------------------
+      - name: Verify Kubernetes nodes
+        run: |
+          kubectl get nodes -o wide
+
+
+      # ---------------------------------------------------------
+      # 16. Verify Kubernetes system pods
+      # ---------------------------------------------------------
+      - name: Verify Kubernetes system pods
+        run: |
+          kubectl get pods -A
+
+
+      # ---------------------------------------------------------
+      # 17. Final verification
+      # ---------------------------------------------------------
+      - name: EKS deployment summary
+        run: |
+          echo "=========================================="
+          echo " EKS INFRASTRUCTURE CREATED SUCCESSFULLY"
+          echo "=========================================="
+          echo ""
+          echo "Cluster:"
+          echo "dev-sdds-eks"
+          echo ""
+          echo "Region:"
+          echo "$AWS_REGION"
+          echo ""
+          echo "Nodes:"
+          kubectl get nodes
+          echo ""
+          echo "Cluster Status:"
+          aws eks describe-cluster \
+            --name dev-sdds-eks \
+            --region $AWS_REGION \
+            --query 'cluster.status' \
+            --output text
