@@ -13,16 +13,16 @@ module "vpc" {
 module "eks" {
   source = "./modules/eks"
 
-  name                  = "${var.name}-eks"
-  kubernetes_version    = var.eks_kubernetes_version
-  vpc_id                = module.vpc.vpc_id
-  private_subnet_ids    = module.vpc.private_subnets
-  node_instance_types   = var.eks_node_instance_types
-  node_min_size         = var.eks_node_min_size
-  node_desired_size     = var.eks_node_desired_size
-  node_max_size         = var.eks_node_max_size
-  cluster_log_types     = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
-  tags                  = var.tags
+  name                    = "${var.name}-eks"
+  kubernetes_version      = var.eks_kubernetes_version
+  vpc_id                  = module.vpc.vpc_id
+  private_subnet_ids      = module.vpc.private_subnets
+  node_instance_types     = var.eks_node_instance_types
+  node_min_size           = var.eks_node_min_size
+  node_desired_size       = var.eks_node_desired_size
+  node_max_size           = var.eks_node_max_size
+  cluster_log_types       = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
+  tags                    = var.tags
   github_actions_role_arn = var.github_actions_role_arn
 }
 
@@ -59,7 +59,7 @@ module "secrets" {
 module "cloudwatch" {
   source = "./modules/cloudwatch"
 
-  cluster_name        = module.eks.cluster_name
-  log_retention_days  = var.log_retention_days
-  tags                = var.tags
+  cluster_name       = module.eks.cluster_name
+  log_retention_days = var.log_retention_days
+  tags               = var.tags
 }

@@ -1,4 +1,4 @@
-region      = "us-east-1"
+region       = "us-east-1"
 project_name = "sdds"
 
 # Set this after bootstrap. Example:

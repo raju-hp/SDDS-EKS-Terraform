@@ -86,11 +86,11 @@ resource "aws_security_group" "nodes" {
   vpc_id      = var.vpc_id
 
   ingress {
-    description     = "Node-to-node"
-    protocol        = "-1"
-    from_port       = 0
-    to_port         = 0
-    self            = true
+    description = "Node-to-node"
+    protocol    = "-1"
+    from_port   = 0
+    to_port     = 0
+    self        = true
   }
 
   ingress {
