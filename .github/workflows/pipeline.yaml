@@ -112,7 +112,7 @@ jobs:
 
       - name: Check AWS region
         run: |
-          echo "AWS Region:"
+          echo "$AWS_REGION"
           aws configure get region
 
           echo "AWS CLI version:"
