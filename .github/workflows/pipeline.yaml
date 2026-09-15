@@ -19,44 +19,62 @@ env:
   TF_INPUT: false
 
 jobs:
-
-  terraform:
-    name: Terraform - EKS Infrastructure
+  set-environment:
     runs-on: ubuntu-latest
 
-    environment: dev
+    outputs:
+      env_name: ${{ steps.set_env.outputs.env_name }}
 
     steps:
-      # ---------------------------------------------------------
-      # 1. Checkout source code
-      # ---------------------------------------------------------
+      - name: Set environment
+        id: set_env
+        run: |
+          echo "STARTED: Setting environment based on branch..."
+
+          # Detect branch name
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BRANCH="${{ github.base_ref }}"
+          else
+            BRANCH="${GITHUB_REF#refs/heads/}"
+          fi
+
+          # Map branch directly to environment
+          if [[ "$BRANCH" == "main" ]]; then
+            echo "Branch '$BRANCH' detected -> setting environment to prod"
+            ENV="prod"
+
+          elif [[ "$BRANCH" == "dev" ]]; then
+            echo "Branch '$BRANCH' detected -> setting environment to dev"
+            ENV="dev"
+          fi
+
+          echo "Branch": $BRANCH
+          echo "env_name": $ENV >> "$GITHUB_OUTPUT"
+  Terraform:
+    name: Terraform checks
+    runs-on: ubuntu-latest
+    needs: set-environment
+    environment:
+      name: ${{ needs.set-environment.outputs.env_name }}
+
+    steps:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-
-      # ---------------------------------------------------------
-      # 2. Configure AWS authentication using GitHub OIDC
-      # ---------------------------------------------------------
       - name: Configure AWS credentials
+        if: ${{ needs.set-environment.outputs.env_name == 'dev' }}
         uses: aws-actions/configure-aws-credentials@v6
+
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-          role-session-name: GitHubActions-EKS
+          audience: sts.amazonaws.com
 
-
-      # ---------------------------------------------------------
-      # 3. Verify AWS authentication
-      # ---------------------------------------------------------
       - name: Verify AWS identity
         run: |
           echo "Checking AWS authentication..."
           aws sts get-caller-identity
 
-
-      # ---------------------------------------------------------
-      # 4. Check AWS region
-      # ---------------------------------------------------------
       - name: Check AWS region
         run: |
           echo "AWS Region:"
@@ -65,25 +83,13 @@ jobs:
           echo "AWS CLI version:"
           aws --version
 
-
-      # ---------------------------------------------------------
-      # 5. Setup Terraform
-      # ---------------------------------------------------------
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-
-      # ---------------------------------------------------------
-      # 6. Check Terraform version
-      # ---------------------------------------------------------
       - name: Terraform version
         run: |
           terraform version
 
-
-      # ---------------------------------------------------------
-      # 7. Terraform formatting check
-      # ---------------------------------------------------------
       - name: Terraform Format Check
         run: |
           terraform fmt -check -recursive
