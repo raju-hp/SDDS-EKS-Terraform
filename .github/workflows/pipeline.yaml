@@ -37,22 +37,17 @@ jobs:
       # ---------------------------------------------------------
       # 2. Configure AWS authentication using GitHub OIDC
       # ---------------------------------------------------------
+      - name: Verify AWS identity
+        run: |
+          echo "Checking AWS authentication..."
+          aws sts get-caller-identity
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: GitHubActions-EKS
-
-
-      # ---------------------------------------------------------
-      # 3. Verify AWS authentication
-      # ---------------------------------------------------------
-      - name: Verify AWS identity
-        run: |
-          echo "Checking AWS authentication..."
-          aws sts get-caller-identity
-
 
       # ---------------------------------------------------------
       # 4. Check AWS region
