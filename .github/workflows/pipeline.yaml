@@ -64,10 +64,9 @@ jobs:
       - name: Configure AWS credentials
         if: ${{ needs.set-environment.outputs.env_name == 'dev' }}
         uses: aws-actions/configure-aws-credentials@v6
-
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: arn:aws:iam::515020253576:role/GitHubActions-Terraform
+          aws-region: us-east-1
           audience: sts.amazonaws.com
 
       - name: Verify AWS identity
