@@ -1,13 +1,16 @@
 name: EKS Infrastructure Pipeline
 
-# Controls when the workflow will run
 on:
-  # Triggers the workflow on push or pull request events but only for the "main" branch
   push:
-    branches: [ "main", "dev" ]
+    branches:
+      - main
+      - dev
+      - feature/infra-creation
+
   pull_request:
-    branches: [ "main", "dev"]
-    
+    branches:
+      - main
+      - dev
 
 permissions:
   id-token: write
@@ -20,43 +23,93 @@ env:
 
 jobs:
 
-  terraform:
-    name: Terraform - EKS Infrastructure
+  set-environment:
     runs-on: ubuntu-latest
 
-    environment: dev
+    outputs:
+      env_name: ${{ steps.set_env.outputs.env_name }}
 
     steps:
-      # ---------------------------------------------------------
-      # 1. Checkout source code
-      # ---------------------------------------------------------
+      - name: Set environment
+        id: set_env
+        shell: bash
+        run: |
+          echo "STARTED: Setting environment based on branch..."
+
+          # Detect branch name
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BRANCH="${{ github.base_ref }}"
+          else
+            BRANCH="${GITHUB_REF#refs/heads/}"
+          fi
+
+          echo "Detected branch: $BRANCH"
+
+          # Map branch to environment
+          if [[ "$BRANCH" == "main" ]]; then
+            echo "Branch '$BRANCH' detected -> setting environment to prod"
+            ENV="prod"
+
+          elif [[ "$BRANCH" == "dev" ]]; then
+            echo "Branch '$BRANCH' detected -> setting environment to dev"
+            ENV="dev"
+
+          elif [[ "$BRANCH" == "feature/infra-creation" ]]; then
+            echo "Branch '$BRANCH' detected -> setting environment to dev"
+            ENV="dev"
+
+          else
+            echo "ERROR: Unsupported branch '$BRANCH'"
+            exit 1
+          fi
+
+          echo "Branch: $BRANCH"
+          echo "Environment: $ENV"
+
+          # Set job output
+          echo "env_name=$ENV" >> "$GITHUB_OUTPUT"
+
+          # Verify output
+          echo "GitHub output:"
+          cat "$GITHUB_OUTPUT"
+          
+  - name: Show GitHub repository IDs
+    run: |
+      echo "Repository: $GITHUB_REPOSITORY"
+      echo "Repository ID: $GITHUB_REPOSITORY_ID"
+      echo "Owner: $GITHUB_REPOSITORY_OWNER"
+      echo "Owner ID: $GITHUB_REPOSITORY_OWNER_ID"
+
+  Terraform:
+    name: Terraform checks
+    runs-on: ubuntu-latest
+
+    needs: set-environment
+
+    environment:
+      name: ${{ needs.set-environment.outputs.env_name }}
+
+    steps:
+
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      - name: Show environment
+        run: |
+          echo "Environment = '${{ needs.set-environment.outputs.env_name }}'"
 
-      # ---------------------------------------------------------
-      # 2. Configure AWS authentication using GitHub OIDC
-      # ---------------------------------------------------------
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          role-to-assume: arn:aws:iam::515020253576:role/GitHubActions-Terraform
           aws-region: ${{ env.AWS_REGION }}
-          role-session-name: GitHubActions-EKS
+          audience: sts.amazonaws.com
 
-
-      # ---------------------------------------------------------
-      # 3. Verify AWS authentication
-      # ---------------------------------------------------------
       - name: Verify AWS identity
         run: |
           echo "Checking AWS authentication..."
           aws sts get-caller-identity
 
-
-      # ---------------------------------------------------------
-      # 4. Check AWS region
-      # ---------------------------------------------------------
       - name: Check AWS region
         run: |
           echo "AWS Region:"
@@ -65,25 +118,13 @@ jobs:
           echo "AWS CLI version:"
           aws --version
 
-
-      # ---------------------------------------------------------
-      # 5. Setup Terraform
-      # ---------------------------------------------------------
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-
-      # ---------------------------------------------------------
-      # 6. Check Terraform version
-      # ---------------------------------------------------------
       - name: Terraform version
         run: |
           terraform version
 
-
-      # ---------------------------------------------------------
-      # 7. Terraform formatting check
-      # ---------------------------------------------------------
       - name: Terraform Format Check
         run: |
           terraform fmt -check -recursive
