@@ -50,10 +50,12 @@ jobs:
 
           echo "Branch": $BRANCH
           echo "env_name=$ENV" >> "$GITHUB_OUTPUT"
+
   Terraform:
     name: Terraform checks
     runs-on: ubuntu-latest
     needs: set-environment
+
     environment:
       name: ${{ needs.set-environment.outputs.env_name }}
 
@@ -61,8 +63,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      - name: Show environment
+        run: |
+          echo "Environment = '${{ needs.set-environment.outputs.env_name }}'"
+
       - name: Configure AWS credentials
-        if: ${{ needs.set-environment.outputs.env_name == 'dev' }}
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::515020253576:role/GitHubActions-Terraform
