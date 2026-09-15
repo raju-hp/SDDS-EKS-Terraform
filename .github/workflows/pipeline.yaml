@@ -110,13 +110,19 @@ jobs:
           echo "Checking AWS authentication..."
           aws sts get-caller-identity
 
-      - name: Check AWS region
+      - name: Verify AWS Region
         run: |
-          echo "$AWS_REGION"
-          aws configure get region
+          echo "AWS Region: $AWS_REGION"
+          echo "AWS Default Region: $AWS_DEFAULT_REGION"
 
           echo "AWS CLI version:"
           aws --version
+
+          echo "AWS caller identity:"
+          aws sts get-caller-identity
+
+          echo "AWS configuration:"
+          aws configure list
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
