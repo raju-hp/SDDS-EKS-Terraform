@@ -49,7 +49,7 @@ jobs:
           fi
 
           echo "Branch": $BRANCH
-          echo "env_name": $ENV >> "$GITHUB_OUTPUT"
+          echo "env_name=$ENV" >> "$GITHUB_OUTPUT"
   Terraform:
     name: Terraform checks
     runs-on: ubuntu-latest
