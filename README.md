@@ -44,6 +44,14 @@ Record:
 - state bucket name
 - GitHub Actions role ARN
 
+Add these GitHub repository variables under **Settings > Secrets and variables > Actions > Variables**:
+
+- `TF_STATE_BUCKET`: the `state_bucket_name` bootstrap output
+- `AWS_ROLE_ARN`: the `github_actions_role_arn` bootstrap output
+
+Run the bootstrap before the GitHub Actions pipeline. The bootstrap creates the
+state bucket; the pipeline only connects to that existing bucket.
+
 The bootstrap intentionally attaches AdministratorAccess to the GitHub Actions role to simplify the first implementation. Replace this with least privilege before production.
 
 ## 2. Configure backend
