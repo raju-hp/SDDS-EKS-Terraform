@@ -141,7 +141,10 @@ jobs:
       # ---------------------------------------------------------
       - name: Terraform Init
         run: |
-          terraform init -input=false
+          terraform init \
+            -input=false \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="key=sdds/${{ needs.set-environment.outputs.env_name }}/terraform.tfstate"
 
 
       # ---------------------------------------------------------

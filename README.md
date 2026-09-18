@@ -48,16 +48,19 @@ The bootstrap intentionally attaches AdministratorAccess to the GitHub Actions r
 
 ## 2. Configure backend
 
-Edit `versions.tf` and replace:
+Add a GitHub repository or environment variable named `TF_STATE_BUCKET` with
+the state bucket name created by bootstrap. The pipeline passes this value to
+`terraform init` and stores state under an environment-specific key:
 
-`REPLACE_WITH_YOUR_STATE_BUCKET`
+`sdds/<environment>/terraform.tfstate`
 
-with the state bucket created by bootstrap.
-
-Then from the repository root:
+Then from the repository root, initialize the backend locally with the bucket
+name supplied explicitly:
 
 ```bash
-terraform init
+terraform init \
+	-backend-config='bucket=YOUR_STATE_BUCKET' \
+	-backend-config='key=sdds/dev/terraform.tfstate'
 ```
 
 If you had previously initialized a local backend, use:
