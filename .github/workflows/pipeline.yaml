@@ -321,7 +321,9 @@ jobs:
       )
     needs:
       - set-environment
+      - set-environment
       - terraform-plan
+    runs-on: ubuntu-latest
     runs-on: ubuntu-latest
 
     steps:
@@ -343,6 +345,7 @@ jobs:
           terraform init \
             -input=false \
             -backend-config="bucket=sdds-terraform-state-dev" \
+            -backend-config="key=sdds/${{ needs.set-environment.outputs.env_name }}/terraform.tfstate"
             -backend-config="key=sdds/${{ needs.set-environment.outputs.env_name }}/terraform.tfstate"
 
       - name: Terraform Destroy
