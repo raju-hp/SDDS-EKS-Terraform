@@ -213,6 +213,51 @@ jobs:
           retention-days: 1
 
 
+  terraform-destroy:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+    needs:
+      - set-environment
+      - terraform-int
+
+    environment:
+      name: ${{ needs.set-environment.outputs.env_name }}
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -input=false \
+            -backend-config="bucket=sdds-terraform-state-dev" \
+            -backend-config="key=sdds/${{ needs.set-environment.outputs.env_name }}/terraform.tfstate"
+
+      - name: Terraform Destroy
+        run: |
+          terraform destroy \
+            -input=false \
+            -auto-approve \
+            -var-file="env/dev.tfvars"
+
+      - name: Permanently delete application secret
+        run: |
+          aws secretsmanager delete-secret \
+            --secret-id "sdds/dev/application" \
+            --force-delete-without-recovery \
+            --region "$AWS_REGION"
+
   # terraform-apply:
   #   name: Terraform apply
   #   runs-on: ubuntu-latest
@@ -300,64 +345,3 @@ jobs:
       #       --region "$AWS_REGION" \
       #       --query 'cluster.status' \
       #       --output text
-
-  terraform-destroy:
-    name: Terraform Destroy
-    if: >
-      always() &&
-      needs.terraform-plan.result == 'success' &&
-      (
-        (
-          github.event_name == 'pull_request' &&
-          github.event.action == 'closed' &&
-          github.event.pull_request.merged == true &&
-          (github.base_ref == 'dev' || github.base_ref == 'main')
-        ) ||
-        (
-          github.event_name == 'push' &&
-          (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main') &&
-          startsWith(github.event.head_commit.message, 'Merge pull request')
-        )
-      )
-    needs:
-      - set-environment
-      - set-environment
-      - terraform-plan
-    runs-on: ubuntu-latest
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-          audience: sts.amazonaws.com
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Terraform Init
-        run: |
-          terraform init \
-            -input=false \
-            -backend-config="bucket=sdds-terraform-state-dev" \
-            -backend-config="key=sdds/${{ needs.set-environment.outputs.env_name }}/terraform.tfstate"
-            -backend-config="key=sdds/${{ needs.set-environment.outputs.env_name }}/terraform.tfstate"
-
-      - name: Terraform Destroy
-        run: |
-          terraform destroy \
-            -input=false \
-            -auto-approve \
-            -var-file="env/dev.tfvars"
-
-      - name: Permanently delete application secret
-        run: |
-          aws secretsmanager delete-secret \
-            --secret-id "sdds/dev/application" \
-            --force-delete-without-recovery \
-            --region "$AWS_REGION"
