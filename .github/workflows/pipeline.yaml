@@ -339,11 +339,11 @@ jobs:
             -input=false \
             -auto-approve \
             -var-file="env/dev.tfvars"
-            
-        - name: Permanently delete application secret
-          run: |
-            aws secretsmanager delete-secret \
-              --secret-id "sdds/dev/application" \
-              --force-delete-without-recovery \
-              --region "$AWS_REGION"
+
+      - name: Permanently delete application secret
+        run: |
+          aws secretsmanager delete-secret \
+            --secret-id "sdds/dev/application" \
+            --force-delete-without-recovery \
+            --region "$AWS_REGION"
 
