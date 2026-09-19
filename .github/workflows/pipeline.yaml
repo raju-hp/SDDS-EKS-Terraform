@@ -304,11 +304,23 @@ jobs:
   terraform-destroy:
     name: Terraform Destroy
     if: >
-      github.event_name == 'pull_request' &&
-      github.event.action == 'closed' &&
-      github.event.pull_request.merged == true &&
-      (github.base_ref == 'dev' || github.base_ref == 'main')
+      always() &&
+      needs.terraform-plan.result == 'success' &&
+      (
+        (
+          github.event_name == 'pull_request' &&
+          github.event.action == 'closed' &&
+          github.event.pull_request.merged == true &&
+          (github.base_ref == 'dev' || github.base_ref == 'main')
+        ) ||
+        (
+          github.event_name == 'push' &&
+          (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main') &&
+          startsWith(github.event.head_commit.message, 'Merge pull request')
+        )
+      )
     needs:
+      - set-environment
       - set-environment
       - terraform-plan
     runs-on: ubuntu-latest
@@ -333,6 +345,7 @@ jobs:
             -input=false \
             -backend-config="bucket=sdds-terraform-state-dev" \
             -backend-config="key=sdds/${{ needs.set-environment.outputs.env_name }}/terraform.tfstate"
+            -backend-config="key=sdds/${{ needs.set-environment.outputs.env_name }}/terraform.tfstate"
 
       - name: Terraform Destroy
         run: |
@@ -340,3 +353,10 @@ jobs:
             -input=false \
             -auto-approve \
             -var-file="env/dev.tfvars"
+
+      - name: Permanently delete application secret
+        run: |
+          aws secretsmanager delete-secret \
+            --secret-id "sdds/dev/application" \
+            --force-delete-without-recovery \
+            --region "$AWS_REGION"
