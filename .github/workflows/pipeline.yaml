@@ -203,6 +203,9 @@ jobs:
   terraform-apply:
     name: Terraform apply
     runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
 
     needs:
       - set-environment
