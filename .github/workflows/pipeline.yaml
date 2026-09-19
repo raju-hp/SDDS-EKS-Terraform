@@ -304,10 +304,21 @@ jobs:
   terraform-destroy:
     name: Terraform Destroy
     if: >
-      github.event_name == 'pull_request' &&
-      github.event.action == 'closed' &&
-      github.event.pull_request.merged == true &&
-      (github.base_ref == 'dev' || github.base_ref == 'main')
+      always() &&
+      needs.terraform-plan.result == 'success' &&
+      (
+        (
+          github.event_name == 'pull_request' &&
+          github.event.action == 'closed' &&
+          github.event.pull_request.merged == true &&
+          (github.base_ref == 'dev' || github.base_ref == 'main')
+        ) ||
+        (
+          github.event_name == 'push' &&
+          (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main') &&
+          startsWith(github.event.head_commit.message, 'Merge pull request')
+        )
+      )
     needs:
       - set-environment
       - terraform-plan
