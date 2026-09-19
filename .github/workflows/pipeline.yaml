@@ -80,7 +80,7 @@ jobs:
           echo "Owner: $GITHUB_REPOSITORY_OWNER"
           echo "Owner ID: $GITHUB_REPOSITORY_OWNER_ID"
 
-  Terraform:
+  terraform-checks:
     name: Terraform checks
     runs-on: ubuntu-latest
 
@@ -98,32 +98,6 @@ jobs:
         run: |
           echo "Environment = '${{ needs.set-environment.outputs.env_name }}'"
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-          audience: sts.amazonaws.com
-
-      - name: Verify AWS identity
-        run: |
-          echo "Checking AWS authentication..."
-          aws sts get-caller-identity
-
-      - name: Verify AWS Region
-        run: |
-          echo "AWS Region: $AWS_REGION"
-          echo "AWS Default Region: $AWS_DEFAULT_REGION"
-
-          echo "AWS CLI version:"
-          aws --version
-
-          echo "AWS caller identity:"
-          aws sts get-caller-identity
-
-          echo "AWS configuration:"
-          aws configure list
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
@@ -135,11 +109,42 @@ jobs:
         run: |
           terraform fmt -check -recursive
 
+      - name: Terraform Init for validation
+        run: |
+          terraform init \
+            -input=false \
+            -backend=false
 
-      # ---------------------------------------------------------
-      # ---------------------------------------------------------
-      # 8. Terraform initialization
-      # ---------------------------------------------------------
+      - name: Terraform Validate
+        run: |
+          terraform validate
+
+
+  terraform-int:
+    name: Terraform init
+    runs-on: ubuntu-latest
+
+    needs:
+      - set-environment
+      - terraform-checks
+
+    environment:
+      name: ${{ needs.set-environment.outputs.env_name }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
       - name: Terraform Init
         run: |
           terraform init \
@@ -148,101 +153,135 @@ jobs:
             -backend-config="key=sdds/${{ needs.set-environment.outputs.env_name }}/terraform.tfstate"
 
 
-      # ---------------------------------------------------------
-      # 9. Terraform validation
-      # ---------------------------------------------------------
-      - name: Terraform Validate
+  terraform-plan:
+    name: Terraform plan
+    runs-on: ubuntu-latest
+
+    needs:
+      - set-environment
+      - terraform-int
+
+    environment:
+      name: ${{ needs.set-environment.outputs.env_name }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
         run: |
-          terraform validate
+          terraform init \
+            -input=false \
+            -backend-config="bucket=sdds-terraform-state-dev" \
+            -backend-config="key=sdds/${{ needs.set-environment.outputs.env_name }}/terraform.tfstate"
 
-
-      # ---------------------------------------------------------
-      # 10. Terraform Plan
-      # ---------------------------------------------------------
       - name: Terraform Plan
         run: |
           terraform plan \
+            -input=false \
             -var-file="env/dev.tfvars" \
             -out=tfplan
 
+      - name: Upload Terraform plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan
+          path: tfplan
+          retention-days: 1
 
-      # ---------------------------------------------------------
-      # 11. Terraform Apply
-      # ---------------------------------------------------------
+
+  terraform-apply:
+    name: Terraform apply
+    runs-on: ubuntu-latest
+
+    needs:
+      - set-environment
+      - terraform-plan
+
+    environment:
+      name: ${{ needs.set-environment.outputs.env_name }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -input=false \
+            -backend-config="bucket=sdds-terraform-state-dev" \
+            -backend-config="key=sdds/${{ needs.set-environment.outputs.env_name }}/terraform.tfstate"
+
+      - name: Download Terraform plan
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan
+
       - name: Terraform Apply
         run: |
           terraform apply \
+            -input=false \
             -auto-approve \
             tfplan
 
-
-      # ---------------------------------------------------------
-      # 12. Display Terraform outputs
-      # ---------------------------------------------------------
       - name: Terraform Outputs
         run: |
           terraform output
 
-
-      # ---------------------------------------------------------
-  # 13. Verify EKS cluster
-      # ---------------------------------------------------------
       - name: Verify EKS cluster
         run: |
           aws eks describe-cluster \
             --name dev-sdds-eks \
-            --region $AWS_REGION \
+            --region "$AWS_REGION" \
             --query 'cluster.status' \
             --output text
 
-
-      # ---------------------------------------------------------
-      # 14. Configure kubectl
-      # ---------------------------------------------------------
       - name: Configure kubectl
         run: |
           aws eks update-kubeconfig \
-            --region $AWS_REGION \
+            --region "$AWS_REGION" \
             --name dev-sdds-eks
 
-
-      # ---------------------------------------------------------
-      # 15. Verify Kubernetes cluster
-      # ---------------------------------------------------------
       - name: Verify Kubernetes nodes
         run: |
           kubectl get nodes -o wide
 
-
-      # ---------------------------------------------------------
-      # 16. Verify Kubernetes system pods
-      # ---------------------------------------------------------
       - name: Verify Kubernetes system pods
         run: |
           kubectl get pods -A
 
-
-      # ---------------------------------------------------------
-      # 17. Final verification
-      # ---------------------------------------------------------
       - name: EKS deployment summary
         run: |
           echo "=========================================="
           echo " EKS INFRASTRUCTURE CREATED SUCCESSFULLY"
           echo "=========================================="
-          echo ""
-          echo "Cluster:"
-          echo "dev-sdds-eks"
-          echo ""
-          echo "Region:"
-          echo "$AWS_REGION"
-          echo ""
+          echo "Cluster: dev-sdds-eks"
+          echo "Region: $AWS_REGION"
           echo "Nodes:"
           kubectl get nodes
-          echo ""
           echo "Cluster Status:"
           aws eks describe-cluster \
             --name dev-sdds-eks \
-            --region $AWS_REGION \
+            --region "$AWS_REGION" \
             --query 'cluster.status' \
             --output text
