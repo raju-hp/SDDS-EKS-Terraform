@@ -1,6 +1,5 @@
-region      = "us-east-1"
+region       = "us-east-1"
 project_name = "sdds"
-
 # Set this after bootstrap. Example:
 # github_actions_role_arn = "arn:aws:iam::123456789012:role/sdds-github-actions"
 environment = "dev"

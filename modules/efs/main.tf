@@ -24,8 +24,8 @@ resource "aws_security_group" "efs" {
 }
 
 resource "aws_efs_file_system" "this" {
-  creation_token = var.name
-  encrypted      = true
+  creation_token  = var.name
+  encrypted       = true
   throughput_mode = var.throughput_mode
 
   lifecycle_policy {

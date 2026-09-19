@@ -86,11 +86,11 @@ resource "aws_security_group" "nodes" {
   vpc_id      = var.vpc_id
 
   ingress {
-    description     = "Node-to-node"
-    protocol        = "-1"
-    from_port       = 0
-    to_port         = 0
-    self            = true
+    description = "Node-to-node"
+    protocol    = "-1"
+    from_port   = 0
+    to_port     = 0
+    self        = true
   }
 
   ingress {
@@ -332,7 +332,7 @@ resource "aws_iam_role_policy_attachment" "cloudwatch_xray" {
 
 resource "aws_iam_role_policy_attachment" "cloudwatch" {
   role       = aws_iam_role.cloudwatch.name
-  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/AmazonCloudWatchAgentServerPolicy"
+  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/CloudWatchAgentServerPolicy"
 }
 
 resource "aws_eks_addon" "cloudwatch" {
