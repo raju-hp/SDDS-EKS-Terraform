@@ -12,6 +12,14 @@ on:
       - main
       - dev
 
+  workflow_dispatch:
+    inputs:
+      confirm_destroy:
+        description: "Confirm destruction of the selected environment"
+        required: true
+        type: boolean
+        default: false
+
 permissions:
   id-token: write
   contents: read
@@ -200,19 +208,108 @@ jobs:
           retention-days: 1
 
 
-  terraform-apply:
-    name: Terraform apply
+  # terraform-apply:
+  #   name: Terraform apply
+  #   runs-on: ubuntu-latest
+  #   if: >-
+  #     github.event_name == 'push' &&
+  #     (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+
+  #   needs:
+  #     - set-environment
+  #     - terraform-plan
+
+  #   environment:
+  #     name: ${{ needs.set-environment.outputs.env_name }}
+
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v5
+
+  #     - name: Configure AWS credentials
+  #       uses: aws-actions/configure-aws-credentials@v6
+  #       with:
+  #         role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+  #         aws-region: ${{ env.AWS_REGION }}
+  #         audience: sts.amazonaws.com
+
+  #     - name: Setup Terraform
+  #       uses: hashicorp/setup-terraform@v3
+
+  #     - name: Terraform Init
+  #       run: |
+  #         terraform init \
+  #           -input=false \
+  #           -backend-config="bucket=sdds-terraform-state-dev" \
+  #           -backend-config="key=sdds/${{ needs.set-environment.outputs.env_name }}/terraform.tfstate"
+
+  #     - name: Download Terraform plan
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: terraform-plan
+
+  #     - name: Terraform Apply
+  #       run: |
+  #         terraform apply \
+  #           -input=false \
+  #           -auto-approve \
+  #           tfplan
+
+  #     - name: Terraform Outputs
+  #       run: |
+  #         terraform output
+
+  #     - name: Verify EKS cluster
+  #       run: |
+  #         aws eks describe-cluster \
+  #           --name dev-sdds-eks \
+  #           --region "$AWS_REGION" \
+  #           --query 'cluster.status' \
+  #           --output text
+      #   - name: Configure kubectl
+      #   run: |
+      #     aws eks update-kubeconfig \
+      #       --region "$AWS_REGION" \
+      #       --name dev-sdds-eks
+
+      # - name: Verify Kubernetes nodes
+      #   run: |
+      #     kubectl get nodes -o wide
+
+      # - name: Verify Kubernetes system pods
+      #   run: |
+      #     kubectl get pods -A
+
+      # - name: EKS deployment summary
+      #   run: |
+      #     echo "=========================================="
+      #     echo " EKS INFRASTRUCTURE CREATED SUCCESSFULLY"
+      #     echo "=========================================="
+      #     echo "Cluster: dev-sdds-eks"
+      #     echo "Region: $AWS_REGION"
+      #     echo "Nodes:"
+      #     kubectl get nodes
+      #     echo "Cluster Status:"
+      #     aws eks describe-cluster \
+      #       --name dev-sdds-eks \
+      #       --region "$AWS_REGION" \
+      #       --query 'cluster.status' \
+      #       --output text
+
+
+  terraform-destroy:
+    name: Terraform destroy
     runs-on: ubuntu-latest
     if: >-
-      github.event_name == 'push' &&
-      (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+      always() &&
+      github.event_name == 'workflow_dispatch' &&
+      inputs.confirm_destroy == true
 
     needs:
-      - set-environment
       - terraform-plan
 
     environment:
-      name: ${{ needs.set-environment.outputs.env_name }}
+      name: ${{ needs.set-environment.outputs.env_name || 'dev' }}
 
     steps:
       - name: Checkout repository
@@ -233,58 +330,12 @@ jobs:
           terraform init \
             -input=false \
             -backend-config="bucket=sdds-terraform-state-dev" \
-            -backend-config="key=sdds/${{ needs.set-environment.outputs.env_name }}/terraform.tfstate"
+            -backend-config="key=sdds/dev/terraform.tfstate"
 
-      - name: Download Terraform plan
-        uses: actions/download-artifact@v4
-        with:
-          name: terraform-plan
-
-      - name: Terraform Apply
+      - name: Terraform Destroy
         run: |
-          terraform apply \
+          terraform destroy \
             -input=false \
             -auto-approve \
-            tfplan
+            -var-file="env/dev.tfvars"
 
-      - name: Terraform Outputs
-        run: |
-          terraform output
-
-      - name: Verify EKS cluster
-        run: |
-          aws eks describe-cluster \
-            --name dev-sdds-eks \
-            --region "$AWS_REGION" \
-            --query 'cluster.status' \
-            --output text
-
-      - name: Configure kubectl
-        run: |
-          aws eks update-kubeconfig \
-            --region "$AWS_REGION" \
-            --name dev-sdds-eks
-
-      - name: Verify Kubernetes nodes
-        run: |
-          kubectl get nodes -o wide
-
-      - name: Verify Kubernetes system pods
-        run: |
-          kubectl get pods -A
-
-      - name: EKS deployment summary
-        run: |
-          echo "=========================================="
-          echo " EKS INFRASTRUCTURE CREATED SUCCESSFULLY"
-          echo "=========================================="
-          echo "Cluster: dev-sdds-eks"
-          echo "Region: $AWS_REGION"
-          echo "Nodes:"
-          kubectl get nodes
-          echo "Cluster Status:"
-          aws eks describe-cluster \
-            --name dev-sdds-eks \
-            --region "$AWS_REGION" \
-            --query 'cluster.status' \
-            --output text
