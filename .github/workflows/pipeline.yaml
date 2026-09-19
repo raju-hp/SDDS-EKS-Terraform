@@ -306,10 +306,11 @@ jobs:
       inputs.confirm_destroy == true
 
     needs:
+      - set-environment
       - terraform-plan
 
     environment:
-      name: ${{ needs.set-environment.outputs.env_name || 'dev' }}
+      name: ${{ needs.set-environment.outputs.env_name }}
 
     steps:
       - name: Checkout repository
@@ -330,7 +331,7 @@ jobs:
           terraform init \
             -input=false \
             -backend-config="bucket=sdds-terraform-state-dev" \
-            -backend-config="key=sdds/dev/terraform.tfstate"
+            -backend-config="key=sdds/${{ needs.set-environment.outputs.env_name }}/terraform.tfstate"
 
       - name: Terraform Destroy
         run: |
@@ -338,4 +339,11 @@ jobs:
             -input=false \
             -auto-approve \
             -var-file="env/dev.tfvars"
+            
+        - name: Permanently delete application secret
+          run: |
+            aws secretsmanager delete-secret \
+              --secret-id "sdds/dev/application" \
+              --force-delete-without-recovery \
+              --region "$AWS_REGION"
 
