@@ -137,13 +137,14 @@ jobs:
 
 
       # ---------------------------------------------------------
+      # ---------------------------------------------------------
       # 8. Terraform initialization
       # ---------------------------------------------------------
       - name: Terraform Init
         run: |
           terraform init \
             -input=false \
-            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="bucket=sdds-terraform-state-dev" \
             -backend-config="key=sdds/${{ needs.set-environment.outputs.env_name }}/terraform.tfstate"
 
 
@@ -184,7 +185,7 @@ jobs:
 
 
       # ---------------------------------------------------------
-      # 13. Verify EKS cluster
+  # 13. Verify EKS cluster
       # ---------------------------------------------------------
       - name: Verify EKS cluster
         run: |

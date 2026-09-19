@@ -13,14 +13,16 @@
 
 ## Phase 1 - Bootstrap
 
-1. Set the AWS CLI profile/credentials locally.
-2. Enter `bootstrap/`.
-3. Run:
+1. Create the S3 bucket `sdds-terraform-state-dev` manually in `us-east-1`.
+   Enable versioning, default server-side encryption, and block all public access.
+2. Set the AWS CLI profile/credentials locally.
+3. Enter `bootstrap/`.
+4. Run:
    ```
    terraform init
-   terraform apply -var='state_bucket_name=UNIQUE-BUCKET-NAME' -var='github_org=ORG' -var='github_repo=REPO'
+   terraform apply -var='github_org=ORG' -var='github_repo=REPO'
    ```
-4. Record the state bucket and role ARN.
+5. Record the GitHub Actions role ARN.
 
 ## Phase 2 - Configure Terraform
 

@@ -37,28 +37,29 @@ The bootstrap must be run once from a trusted machine with AWS administrator cre
 ```bash
 cd bootstrap
 terraform init
-terraform apply   -var='state_bucket_name=sdds-terraform-state-UNIQUE-NAME'   -var='github_org=YOUR_GITHUB_ORG'   -var='github_repo=YOUR_GITHUB_REPO'
+terraform apply   -var='github_org=YOUR_GITHUB_ORG'   -var='github_repo=YOUR_GITHUB_REPO'
 ```
 
 Record:
-- state bucket name
 - GitHub Actions role ARN
+
+Before running the pipeline, create the S3 bucket `sdds-terraform-state-dev`
+manually in `us-east-1`. Enable versioning, default server-side encryption,
+and block all public access.
 
 Add these GitHub repository variables under **Settings > Secrets and variables > Actions > Variables**:
 
-- `TF_STATE_BUCKET`: the `state_bucket_name` bootstrap output
 - `AWS_ROLE_ARN`: the `github_actions_role_arn` bootstrap output
 
-Run the bootstrap before the GitHub Actions pipeline. The bootstrap creates the
-state bucket; the pipeline only connects to that existing bucket.
+Run the bootstrap before the GitHub Actions pipeline. The pipeline connects to
+the manually created state bucket.
 
 The bootstrap intentionally attaches AdministratorAccess to the GitHub Actions role to simplify the first implementation. Replace this with least privilege before production.
 
 ## 2. Configure backend
 
-Add a GitHub repository or environment variable named `TF_STATE_BUCKET` with
-the state bucket name created by bootstrap. The pipeline passes this value to
-`terraform init` and stores state under an environment-specific key:
+The pipeline uses the manually created bucket `sdds-terraform-state-dev` and
+stores state under an environment-specific key:
 
 `sdds/<environment>/terraform.tfstate`
 
