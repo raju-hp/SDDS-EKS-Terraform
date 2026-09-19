@@ -18,10 +18,6 @@ resource "aws_secretsmanager_secret" "this" {
   description             = "SDDS application credentials"
   recovery_window_in_days = 7
 
-  lifecycle {
-    prevent_destroy = true
-  }
-
   tags = var.tags
 }
 
